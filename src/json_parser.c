@@ -1,25 +1,35 @@
 #define _POSIX_C_SOURCE 200809L
 
+#include "json_parser.h"
+#include "pr.h"
+#include <json-c/json.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <json-c/json.h>
-#include "pr.h"
-#include "json_parser.h"
 
-static char *get_string(json_object *obj, const char *key) {
+static int get_int(json_object *obj, const char *key) {
     json_object *tmp;
-    if (json_object_object_get_ex(obj, key, &tmp)) {
-        const char *s = json_object_get_string(tmp);
-        return s ? strdup(s) : NULL;
-    }
-    return NULL;
+    if (!json_object_object_get_ex(obj, key, &tmp))
+        return 0;
+    return json_object_get_int(tmp);
 }
 
-static char *get_nested_string(json_object *obj, const char *parent, const char *child) {
-    json_object *parent_obj;
-    if (!json_object_object_get_ex(obj, parent, &parent_obj)) return NULL;
-    return get_string(parent_obj, child);
+static char *get_string(json_object *obj, const char *path) {
+    char *p = strdup(path);
+    char *key = strtok(p, "->");
+    while (key) {
+        if (!json_object_object_get_ex(obj, key, &obj)) {
+            free(p);
+            return NULL;
+        }
+        if ((key = strtok(NULL, "->")) == NULL) {
+            free(p);
+            const char *s = json_object_get_string(obj);
+            return s ? strdup(s) : NULL;
+        }
+    }
+    free(p);
+    return NULL;
 }
 
 PRList *parse_prs_from_file(const char *filename) {
@@ -54,15 +64,11 @@ PRList *parse_prs_from_file(const char *filename) {
         json_object *item = json_object_array_get_idx(root, i);
         PR *pr = &list->prs[i];
 
-        json_object *num;
-        if (json_object_object_get_ex(item, "number", &num)) {
-            pr->number = json_object_get_int(num);
-        }
-
+        pr->number = get_int(item, "number");
         pr->title = get_string(item, "title");
         pr->url = get_string(item, "url");
-        pr->repository = get_nested_string(item, "repository", "name");
-        pr->author = get_nested_string(item, "author", "login");
+        pr->repository = get_string(item, "repository->name");
+        pr->author = get_string(item, "author->login");
         pr->review_decision = get_string(item, "reviewDecision");
 
         json_object *reviews;
@@ -72,7 +78,7 @@ PRList *parse_prs_from_file(const char *filename) {
                 int review_count = json_object_array_length(nodes);
                 if (review_count > 0) {
                     json_object *review = json_object_array_get_idx(nodes, 0);
-                    pr->reviewer = get_nested_string(review, "author", "login");
+                    pr->reviewer = get_string(review, "author->login");
                 }
             }
         }
