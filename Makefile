@@ -4,7 +4,7 @@ LDFLAGS = -lncursesw -ljson-c
 
 SRC = src/main.c src/pr.c src/json_parser.c src/ui.c
 OBJ = $(SRC:.c=.o)
-TARGET = pr-selector
+TARGET = pr-monitor
 
 all: $(TARGET)
 
