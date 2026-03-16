@@ -1,15 +1,15 @@
+#define _POSIX_C_SOURCE 200809L
+
+#include "pr.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pr.h"
 
-#define COLOR_GREEN "\033[32m"
-#define COLOR_RED "\033[31m"
-#define COLOR_DIM "\033[2m"
-#define COLOR_RESET "\033[0m"
-
+// TODO obfuscate object structure
+// TODO Check if reviewer correcly handles multiple reviewers
 void pr_free(PR *pr) {
-    if (!pr) return;
+    if (!pr)
+        return;
     free(pr->title);
     free(pr->url);
     free(pr->author);
@@ -19,7 +19,8 @@ void pr_free(PR *pr) {
 }
 
 void prlist_free(PRList *list) {
-    if (!list) return;
+    if (!list)
+        return;
     for (size_t i = 0; i < list->count; i++) {
         pr_free(&list->prs[i]);
     }
@@ -27,26 +28,24 @@ void prlist_free(PRList *list) {
     free(list);
 }
 
-const char *get_review_emoji(const char *decision) {
-    if (!decision) return "⏳";
-    if (strcmp(decision, "APPROVED") == 0) return "✅";
-    if (strcmp(decision, "CHANGES_REQUESTED") == 0) return "❌";
-    if (strcmp(decision, "REVIEW_REQUIRED") == 0) return "⏳";
-    return "⏳";
+// TODO improve naming
+char *get_review(PR *pr) {
+    char *decision = pr->review_decision;
+    if (!decision)
+        return strdup("⏳ Pending");
+    if (strcmp(decision, "REVIEW_REQUIRED") == 0)
+        return strdup("⏳ Review required");
+    if (strcmp(decision, "CHANGES_REQUESTED") == 0)
+        return strdup("❌ Changes requested");
+    if (strcmp(decision, "APPROVED") == 0) {
+        if (pr->reviewer) {
+            char *mask = "✅ Approved (by: %s)";
+            int len = snprintf(NULL, 0, mask, pr->reviewer) + 1;
+            char *result = malloc(len);
+            snprintf(result, len, mask, pr->reviewer);
+            return result;
+        }
+    }
+    return strdup("😵‍💫 Unknown");
 }
 
-const char *get_review_text(const char *decision) {
-    if (!decision) return "Pending";
-    if (strcmp(decision, "APPROVED") == 0) return "Approved";
-    if (strcmp(decision, "CHANGES_REQUESTED") == 0) return "Changes Requested";
-    if (strcmp(decision, "REVIEW_REQUIRED") == 0) return "Review Required";
-    return "Pending";
-}
-
-const char *get_review_color(const char *decision) {
-    if (!decision) return COLOR_DIM;
-    if (strcmp(decision, "APPROVED") == 0) return COLOR_GREEN;
-    if (strcmp(decision, "CHANGES_REQUESTED") == 0) return COLOR_RED;
-    if (strcmp(decision, "REVIEW_REQUIRED") == 0) return COLOR_DIM;
-    return COLOR_DIM;
-}

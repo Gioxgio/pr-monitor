@@ -20,8 +20,6 @@ typedef struct {
 
 void pr_free(PR *pr);
 void prlist_free(PRList *list);
-const char *get_review_emoji(const char *decision);
-const char *get_review_text(const char *decision);
-const char *get_review_color(const char *decision);
+char *get_review(PR *pr);
 
 #endif
