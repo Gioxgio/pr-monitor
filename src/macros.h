@@ -1,0 +1,24 @@
+#ifndef MACROS_H
+#define MACROS_H
+
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
+#ifndef _XOPEN_SOURCE_EXTENDED
+#define _XOPEN_SOURCE_EXTENDED 1
+#endif
+
+#define REVIEW_PENDING "⏳ Pending"
+#define REVIEW_REQUIRED "⏳ Review required"
+#define REVIEW_CHANGES_REQUESTED "❌ Changes requested"
+#define REVIEW_APPROVED "✅ Approved"
+#define REVIEW_APPROVED_BY "✅ Approved (by: %s)"
+#define REVIEW_UNKNOWN "😵‍💫 Unknown"
+
+#define REVIEW_DECISION_PENDING NULL
+#define REVIEW_DECISION_REQUIRED "REVIEW_REQUIRED"
+#define REVIEW_DECISION_CHANGES_REQUESTED "CHANGES_REQUESTED"
+#define REVIEW_DECISION_APPROVED "APPROVED"
+
+#endif

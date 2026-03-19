@@ -1,11 +1,9 @@
-#define _POSIX_C_SOURCE 200809L
-
 #include "pr.h"
+#include "macros.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// TODO obfuscate object structure
 // TODO Check if reviewer correcly handles multiple reviewers
 void pr_free(PR *pr) {
     if (!pr)
@@ -28,7 +26,6 @@ void prlist_free(PRList *list) {
     free(list);
 }
 
-// TODO improve naming
 char *get_review(PR *pr) {
     char *decision = pr->review_decision;
     if (!decision)

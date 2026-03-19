@@ -1,6 +1,5 @@
-#define _POSIX_C_SOURCE 200809L
-
 #include "json_parser.h"
+#include "macros.h"
 #include "pr.h"
 #include <json-c/json.h>
 #include <stdio.h>

@@ -1,10 +1,5 @@
-// TODO Improve handling of this
-#ifndef _POSIX_C_SOURCE
-#define _POSIX_C_SOURCE 200809L
-#endif
-#define _XOPEN_SOURCE_EXTENDED
-
 #include "ui.h"
+#include "macros.h"
 #include "pr.h"
 #include <ncurses.h>
 #include <stdbool.h>
@@ -13,13 +8,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#define private static
-
-private void init();
-private void print_repo(WINDOW *win, const char *repo, int *line_num);
-private void print_pr(WINDOW *win, PR *pr, bool selected, int *line_num);
-private void print_field(WINDOW *, int *, char *, char *, int);
-private int open_url(char *);
+static void init(void);
+static void print_repo(WINDOW *win, const char *repo, int *line_num);
+static void print_pr(WINDOW *win, PR *pr, bool selected, int *line_num);
+static void print_field(WINDOW *, int *, char *, char *, int);
+static int open_url(char *);
 
 int run_ui(PRList *list) {
     init();
@@ -69,7 +62,7 @@ int run_ui(PRList *list) {
     return 0;
 }
 
-private void init() {
+static void init() {
     initscr();
     raw();
     noecho();
@@ -88,13 +81,13 @@ private void init() {
     init_pair(6, COLOR_RED, COLOR_BLACK);    // Changes requested PRs
 }
 
-private void print_repo(WINDOW *win, const char *repo, int *line_num) {
+static void print_repo(WINDOW *win, const char *repo, int *line_num) {
     wattron(win, COLOR_PAIR(2));
     mvwprintw(win, (*line_num)++, 0, "📦 %s", repo);
     wattroff(win, COLOR_PAIR(2));
 }
 
-private void print_pr(WINDOW *win, PR *pr, bool selected, int *line_num) {
+static void print_pr(WINDOW *win, PR *pr, bool selected, int *line_num) {
     if (selected) {
         wattron(win, A_BOLD);
         mvwprintw(win, (*line_num)++, 0, "> #%d %s", pr->number, pr->title);
@@ -122,8 +115,8 @@ private void print_pr(WINDOW *win, PR *pr, bool selected, int *line_num) {
     free(review_value);
 }
 
-private void print_field(WINDOW *win, int *line_num, char *label, char *value,
-                         int color_pair) {
+static void print_field(WINDOW *win, int *line_num, char *label, char *value,
+                        int color_pair) {
     wattron(win, COLOR_PAIR(3));
     mvwprintw(win, (*line_num)++, 0, "%s", label);
     wattroff(win, COLOR_PAIR(3));
@@ -134,7 +127,7 @@ private void print_field(WINDOW *win, int *line_num, char *label, char *value,
     wattroff(win, COLOR_PAIR(color_pair));
 }
 
-private int open_url(char *url) {
+static int open_url(char *url) {
     char cmd[1024];
     snprintf(cmd, sizeof(cmd), "xdg-open '%s' &", url);
     return system(cmd);
