@@ -9,55 +9,63 @@
 #include <unistd.h>
 
 static void init(void);
-static void print_repo(WINDOW *win, const char *repo, int *line_num);
-static void print_pr(WINDOW *win, PR *pr, bool selected, int *line_num);
-static void print_field(WINDOW *, int *, char *, char *, int);
+static int count_lines_init_offsets(PRList *, int *);
+static void init_buffer(WINDOW *, PRList *, int);
+static int print_repo(WINDOW *, const char *, int);
+static int print_pr(WINDOW *, PR *, bool, int);
+static void print_field(WINDOW *, int, char *, char *, int);
 static int open_url(char *);
 
+// TODO Add border
+// If content smaller than terminal then obrder smaller than terminal
 int run_ui(PRList *list) {
     init();
 
-    size_t selected = 0;
-    int ch;
+    int selected = 0;
+    int scroll_offset = 0;
+    int *pr_offsets = malloc(sizeof(*pr_offsets) * list->count);
+    int total_lines = count_lines_init_offsets(list, pr_offsets);
+    WINDOW *pad = newpad(total_lines + 1, COLS);
+
+    init_buffer(pad, list, selected);
+    refresh();
 
     while (1) {
-        int line = 1;
-        char *current_repo = NULL;
 
-        for (size_t i = 0; i < list->count; i++) {
-            PR *pr = &list->prs[i];
+        prefresh(pad, scroll_offset, 0, 0, 0, LINES - 1, COLS - 1);
 
-            if (!current_repo || strcmp(current_repo, pr->repository) != 0) {
-                if (current_repo != NULL) {
-                    line++;
-                }
-                free(current_repo);
-                current_repo = strdup(pr->repository);
-                print_repo(stdscr, current_repo, &line);
-            }
+        int ch = getch();
+        int old_selected = selected;
 
-            bool is_selected = i == selected;
-            print_pr(stdscr, pr, is_selected, &line);
-        }
-        free(current_repo);
-
-        refresh();
-
-        ch = getch();
-
-        if (ch == 'q' || ch == 'Q') {
+        if (ch == 'q' || ch == 'Q' || ch == 27) {
             break;
-        } else if (ch == KEY_UP || ch == 'k' || ch == 'K') {
+        }
+        if (ch == KEY_UP || ch == 'k') {
             if (selected > 0)
                 selected--;
-        } else if (ch == KEY_DOWN || ch == 'j' || ch == 'J') {
-            if (selected < list->count - 1)
+        } else if (ch == KEY_DOWN || ch == 'j') {
+            if (selected < (int)list->count - 1)
                 selected++;
         } else if (ch == '\n' || ch == KEY_ENTER) {
             open_url(list->prs[selected].url);
+            continue;
+        }
+
+        if (old_selected != selected) {
+            int old_pos = pr_offsets[old_selected];
+            print_pr(pad, &list->prs[old_selected], false, old_pos);
+            int curr_pos = pr_offsets[selected];
+            print_pr(pad, &list->prs[selected], true, curr_pos);
+
+            if (curr_pos < scroll_offset) {
+                scroll_offset = curr_pos - 1;
+            } else if (curr_pos + 4 > scroll_offset + LINES) {
+                scroll_offset = curr_pos + 5 - LINES;
+            }
         }
     }
 
+    delwin(pad);
     endwin();
     return 0;
 }
@@ -81,19 +89,52 @@ static void init() {
     init_pair(6, COLOR_RED, COLOR_BLACK);    // Changes requested PRs
 }
 
-static void print_repo(WINDOW *win, const char *repo, int *line_num) {
-    wattron(win, COLOR_PAIR(2));
-    mvwprintw(win, (*line_num)++, 0, "📦 %s", repo);
-    wattroff(win, COLOR_PAIR(2));
+static int count_lines_init_offsets(PRList *list, int *pr_offests) {
+    int line = 0;
+    char *prev_repo = NULL;
+
+    for (size_t i = 0; i < list->count; i++) {
+        PR *pr = &list->prs[i];
+        if (!prev_repo || strcmp(prev_repo, pr->repository) != 0) {
+            prev_repo = pr->repository;
+            line += 2;
+        }
+        pr_offests[i] = line;
+        line += 4;
+    }
+
+    return line;
 }
 
-static void print_pr(WINDOW *win, PR *pr, bool selected, int *line_num) {
+static void init_buffer(WINDOW *pad, PRList *list, int selected) {
+    int line = 0;
+    char *prev_repo = NULL;
+
+    for (size_t i = 0; i < list->count; i++) {
+        PR *pr = &list->prs[i];
+        if (!prev_repo || strcmp(prev_repo, pr->repository) != 0) {
+            line++;
+            prev_repo = list->prs[i].repository;
+            line = print_repo(pad, prev_repo, line);
+        }
+        line = print_pr(pad, &list->prs[i], (i == (size_t)selected), line);
+    }
+}
+
+static int print_repo(WINDOW *win, const char *repo, int line_num) {
+    wattron(win, COLOR_PAIR(2));
+    mvwprintw(win, line_num++, 0, "📦 %s", repo);
+    wattroff(win, COLOR_PAIR(2));
+    return line_num;
+}
+
+static int print_pr(WINDOW *win, PR *pr, bool selected, int line_num) {
     if (selected) {
         wattron(win, A_BOLD);
-        mvwprintw(win, (*line_num)++, 0, "> #%d %s", pr->number, pr->title);
+        mvwprintw(win, line_num++, 0, "> #%d %s", pr->number, pr->title);
         wattroff(win, A_BOLD);
     } else {
-        mvwprintw(win, (*line_num)++, 0, "  #%d %s", pr->number, pr->title);
+        mvwprintw(win, line_num++, 0, "  #%d %s", pr->number, pr->title);
     }
 
     int review_color = 0;
@@ -107,23 +148,23 @@ static void print_pr(WINDOW *win, PR *pr, bool selected, int *line_num) {
         review_color = 6;
     }
     char *review_value = get_review(pr);
-    print_field(win, line_num, "    ├─ review: ", review_value, review_color);
-
-    print_field(win, line_num, "    ├─ author: ", pr->author, 0);
-    print_field(win, line_num, "    └─ url:    ", pr->url, 1);
+    print_field(win, line_num++, "    ├─ review: ", review_value, review_color);
+    print_field(win, line_num++, "    ├─ author: ", pr->author, 0);
+    print_field(win, line_num++, "    └─ url:    ", pr->url, 1);
 
     free(review_value);
+    return line_num;
 }
 
-static void print_field(WINDOW *win, int *line_num, char *label, char *value,
+static void print_field(WINDOW *win, int line_num, char *label, char *value,
                         int color_pair) {
     wattron(win, COLOR_PAIR(3));
-    mvwprintw(win, (*line_num)++, 0, "%s", label);
+    mvwprintw(win, line_num, 0, "%s", label);
     wattroff(win, COLOR_PAIR(3));
 
     int col = strlen(label);
     wattron(win, COLOR_PAIR(color_pair));
-    mvwprintw(win, (*line_num - 1), col, "%s", value);
+    mvwprintw(win, line_num, col, "%s", value);
     wattroff(win, COLOR_PAIR(color_pair));
 }
 
